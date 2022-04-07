@@ -180,10 +180,12 @@ def main(argv):
     with zipfile.ZipFile(packname + '-' + packver + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
         for dir, subdirs, files in os.walk(packname + '/overrides'):
             for f in files:
-                zf.write(os.path.join(dir, f))
+                fp = os.path.join(dir, f)
+                zf.write(fp, fp.replace(packname, ''))
             for d in subdirs:
-                zf.write(os.path.join(dir, d))
-        zf.write(packname + '/manifest.json')
+                dp = os.path.join(dir, d)
+                zf.write(dp, dp.replace(packname, ''))
+        zf.write(packname + '/manifest.json', 'manifest.json')
 
     shutil.rmtree(packname, ignore_errors=True)
 
