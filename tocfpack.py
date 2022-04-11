@@ -21,7 +21,7 @@ def getdefault(mcversion, forgeversion, packversion, modpackname, modpackauthor)
                     'modLoaders': [
                         {
                             'id': 'forge-' + forgeversion,
-                            'primary': 'true'
+                            'primary': True
                         }
                     ]
                 },
@@ -163,7 +163,7 @@ def main(argv):
                     default['files'].append({
                         "projectID": modid,
                         "fileID": fileid,
-                        "required": 'true'
+                        "required": True
                     })
                 else:
                     noncflist.append(fullpath)
