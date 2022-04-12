@@ -99,6 +99,10 @@ def ignore_files(dir, names):
     return alist
 
 
+def take_first(elem):
+    return elem[0]
+
+
 def main(argv):
     if len(argv) < 1:
         print('tocfpack.py -k [APIkey] -d [.minecraft directory] -m [mc version] -f [forge version] -v [pack version] '
@@ -147,36 +151,45 @@ def main(argv):
     default = getdefault(mcver, forgever, packver, packname, packauthor)
     noncflist = []
     headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'x-api-key': apikey}
+    idset = []
     for f in os.listdir(folder + '/mods'):
         if f.endswith('.jar') or f.endswith('.zip'):
             fullpath = os.path.join(folder + '/mods', f)
-            print(fullpath)
+            print('Checking mod file ' + fullpath)
             file = open(fullpath, 'rb')
             fingerprint = computeHash(file.read())
             file.close()
+            print('Fingerprint is ' + str(fingerprint))
             response = web.post(url, json={"fingerprints": [fingerprint]}, headers=headers)
             if response.status_code == 200:
                 resp_json = response.json(strict=False)
                 if len(resp_json['data']['exactMatches']) > 0:
-                    modid = resp_json['data']['exactMatches'][0]['file']['modId']
-                    fileid = resp_json['data']['exactMatches'][0]['file']['id']
-                    default['files'].append({
-                        "projectID": modid,
-                        "fileID": fileid,
-                        "required": True
-                    })
+                    idtuple = (resp_json['data']['exactMatches'][0]['file']['modId'], resp_json['data']['exactMatches'][0]['file']['id'])
+                    print('Found on CurseForge! Project ID: ' + str(idtuple[0]) + ', File ID: ' + str(idtuple[1]))
+                    idset.append(idtuple)
                 else:
+                    print('Not on CurseForge! Recording...')
                     noncflist.append(fullpath)
+    print('Sorting manifest file...')
+    idset.sort(key=take_first)
+    for id in idset:
+        default['files'].append({
+            "projectID": id[0],
+            "fileID": id[1],
+            "required": True
+        })
     os.makedirs(packname, exist_ok=True)
+    print('Writing to disk...')
     manifest = open(packname + '/manifest.json', "w")
     manifest.write(json.dumps(default, indent=4))
     manifest.close()
     os.makedirs(packname + '/overrides', exist_ok=True)
     os.makedirs(packname + '/overrides/mods', exist_ok=True)
+    print('Building overrides...')
     for m in noncflist:
         shutil.copy(m, packname + '/overrides/mods/')
     shutil.copytree(folder, packname + '/overrides/', dirs_exist_ok=True, ignore=ignore_files)
-
+    print('Compressing...')
     with zipfile.ZipFile(packname + '-' + packver + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as zf:
         for dir, subdirs, files in os.walk(packname + '/overrides'):
             for f in files:
@@ -188,6 +201,7 @@ def main(argv):
         zf.write(packname + '/manifest.json', 'manifest.json')
 
     shutil.rmtree(packname, ignore_errors=True)
+    print('All done!')
 
 if __name__ == "__main__":
     main(sys.argv[1:])
